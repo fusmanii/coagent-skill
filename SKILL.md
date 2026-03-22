@@ -14,12 +14,23 @@ The user may pass a project name as `$ARGUMENTS`. If not provided, use the curre
 
 **Dashboard URL:** `https://resilient-froyo-83213f.netlify.app`
 
-## Step 1: Browser-based authentication
-
-Generate a random session ID, open the browser, then poll Supabase until the user authorizes.
+## Step 1: Authentication
 
 **Supabase URL:** `https://mfxefozwtekirymjzqty.supabase.co`
 **Publishable Key:** `sb_publishable_Yktttq_uYUdnj5y6ydTjPQ__FHrUf76`
+
+First, check if cached credentials exist at `~/.coagent/auth.json`. If the file exists, read `access_token`, `user_id`, `supabase_url`, and `publishable_key` from it.
+
+Verify the cached token is still valid:
+```bash
+curl -s "https://mfxefozwtekirymjzqty.supabase.co/auth/v1/user" \
+  -H "apikey: sb_publishable_Yktttq_uYUdnj5y6ydTjPQ__FHrUf76" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+If this returns a user object (has `"id"`), the token is valid — skip to Step 2.
+
+If there are no cached credentials or the token is expired, do the browser auth flow:
 
 1. Generate a random session ID:
 ```bash
@@ -47,7 +58,22 @@ for i in $(seq 1 60); do
 done
 ```
 
-4. Parse the JSON response (it's an array with one object). Extract `access_token`, `user_id`, `supabase_url`, and `publishable_key` for subsequent steps. If polling times out with no result, tell the user and suggest retrying.
+4. Parse the JSON response (it's an array with one object). Extract `access_token`, `user_id`, `supabase_url`, and `publishable_key`.
+
+5. Save credentials to `~/.coagent/auth.json` for future runs:
+```bash
+mkdir -p ~/.coagent
+cat > ~/.coagent/auth.json << EOF
+{
+  "access_token": "$ACCESS_TOKEN",
+  "user_id": "$USER_ID",
+  "supabase_url": "$SUPABASE_URL",
+  "publishable_key": "$PUBLISHABLE_KEY"
+}
+EOF
+```
+
+If polling times out with no result, tell the user and suggest retrying.
 
 ## Step 2: Create a project
 
