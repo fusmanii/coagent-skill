@@ -16,35 +16,38 @@ The user may pass a project name as `$ARGUMENTS`. If not provided, use the curre
 
 ## Step 1: Browser-based authentication
 
-Start a temporary local HTTP server and open the browser for the user to authenticate:
+Generate a random session ID, open the browser, then poll Supabase until the user authorizes.
 
+**Supabase URL:** `https://mfxefozwtekirymjzqty.supabase.co`
+**Publishable Key:** `sb_publishable_Yktttq_uYUdnj5y6ydTjPQ__FHrUf76`
+
+1. Generate a random session ID:
 ```bash
-node -e "
-const http = require('http');
-const { exec } = require('child_process');
-const timer = setTimeout(() => { console.error('Timed out waiting for auth'); process.exit(1); }, 120000);
-const server = http.createServer((req, res) => {
-  if (req.url.startsWith('/callback')) {
-    const params = Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end('<html><body style=\"font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0\"><div style=\"text-align:center\"><h2>Authorized</h2><p>You can close this window.</p></div></body></html>');
-    clearTimeout(timer);
-    server.close(() => process.exit(0));
-    console.log(JSON.stringify(params));
-  }
-});
-server.listen(0, () => {
-  const port = server.address().port;
-  const url = 'https://resilient-froyo-83213f.netlify.app/cli-auth?port=' + port;
-  console.error('Open this URL to authenticate: ' + url);
-  exec(process.platform === 'darwin' ? 'open \"' + url + '\"' : 'xdg-open \"' + url + '\"');
-});
-"
+SESSION_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
 ```
 
-The script outputs JSON to stdout with `access_token`, `user_id`, `supabase_url`, and `publishable_key`. Parse these for subsequent steps.
+2. Open the browser:
+```bash
+open "https://resilient-froyo-83213f.netlify.app/cli-auth?session=$SESSION_ID"
+```
+(Use `xdg-open` on Linux instead of `open`.)
 
 Tell the user: "Opening your browser to authenticate with CoAgent. Please sign in and click Authorize."
+
+3. Poll Supabase for the auth result (check every 2 seconds, timeout after 2 minutes):
+```bash
+for i in $(seq 1 60); do
+  RESULT=$(curl -s "https://mfxefozwtekirymjzqty.supabase.co/rest/v1/cli_auth_sessions?id=eq.$SESSION_ID&select=*" \
+    -H "apikey: sb_publishable_Yktttq_uYUdnj5y6ydTjPQ__FHrUf76")
+  if echo "$RESULT" | grep -q "access_token"; then
+    echo "$RESULT"
+    break
+  fi
+  sleep 2
+done
+```
+
+4. Parse the JSON response (it's an array with one object). Extract `access_token`, `user_id`, `supabase_url`, and `publishable_key` for subsequent steps. If polling times out with no result, tell the user and suggest retrying.
 
 ## Step 2: Create a project
 
