@@ -26,8 +26,8 @@ const timer = setTimeout(() => { console.error('Timed out waiting for auth'); pr
 const server = http.createServer((req, res) => {
   if (req.url.startsWith('/callback')) {
     const params = Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
-    res.writeHead(200, { 'Access-Control-Allow-Origin': '*' });
-    res.end('ok');
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end('<html><body style=\"font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0\"><div style=\"text-align:center\"><h2>Authorized</h2><p>You can close this window.</p></div></body></html>');
     clearTimeout(timer);
     server.close(() => process.exit(0));
     console.log(JSON.stringify(params));
